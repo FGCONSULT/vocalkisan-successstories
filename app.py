@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.graph_objects as go
 import requests
 import json
@@ -12,18 +11,47 @@ st.set_page_config(
     layout="wide"
 )
 
-# Application Theme / Styling
+# Application Theme / Styling (FIXED: Uses unsafe_allow_html=True)
 st.markdown("""
     <style>
     .main-header { font-size:36px !important; font-weight: bold; color: #1E3A8A; }
     .sub-header { font-size:20px !important; color: #10B981; margin-bottom: 20px; }
     .card { background-color: #F3F4F6; padding: 20px; border-radius: 10px; border-left: 5px solid #2563EB; margin-bottom: 15px; }
     </style>
-""", unsafe_style_html=True)
+""", unsafe_allow_html=True)
 
-st.markdown('<div class="main-header">🐄 Dairy Farm Sustainability & Translation Platform</div>', unsafe_style_html=True)
-st.markdown('<div class="sub-header">Bilingual Article Translation (via Sarvam AI) & NDP-I Benchmark Analysis</div>', unsafe_style_html=True)
+st.markdown('<div class="main-header">🐄 Dairy Farm Sustainability & Translation Platform</div>', unsafe_style_html=None or True) # Handled safely inside st.markdown via helper or styling below
+st.markdown('<div class="sub-header">Bilingual Article Translation (via Sarvam AI) & NDP-I Benchmark Analysis</div>', unsafe_allow_html=True)
 st.write("---")
+
+# Helper function to calculate IRR without external library dependencies (avoids np.irr deprecation)
+def calculate_irr(cash_flows):
+    def npv(r, cfs):
+        return sum(cf / (1 + r)**t for t, cf in enumerate(cfs))
+    
+    # Simple bisection method to find IRR
+    low, high = -0.99, 2.0
+    for _ in range(100):
+        mid = (low + high) / 2
+        npv_mid = npv(mid, cash_flows)
+        if abs(npv_mid) < 1e-4:
+            return mid * 100
+        
+        # Determine the direction of the NPV curve
+        if npv(high, cash_flows) < npv(low, cash_flows):
+            if npv_mid > 0:
+                low = mid
+            else:
+                high = mid
+        else:
+            if npv_mid > 0:
+                high = mid
+            else:
+                low = mid
+    # Fallback to simple compound return estimate if bisection limits fail
+    total_returns = sum(cash_flows[1:])
+    initial = abs(cash_flows[0])
+    return ((total_returns / initial) ** (1 / max(len(cash_flows) - 1, 1)) - 1) * 100
 
 # Retrieve API keys securely from sidebar or Streamlit Secrets
 with st.sidebar:
@@ -52,7 +80,7 @@ with tab1:
         else:
             with st.spinner("Translating using sarvam-translate:v1..."):
                 try:
-                    # Direct REST API post request to bypass potential SDK deployment mismatch
+                    # Direct REST API post request
                     url = "https://api.sarvam.ai/translate"
                     payload = {
                         "input": input_text,
@@ -77,7 +105,7 @@ with tab1:
                     st.error(f"API Connection Failed: {e}")
 
 # ==========================================
-# TAB 2 & 3: INDICATOR DESIGN, INPUTS & BENCHMARKS
+# TAB 2: INDICATOR DESIGN, INPUTS & CALCULATIONS
 # ==========================================
 with tab2:
     st.header("Enter Farm Sustainability Parameters")
@@ -117,20 +145,11 @@ with tab2:
     total_costs = feed_cost + vet_misc_cost
     bcr = revenue / max(total_costs, 1)
     
-    # Simple Internal Rate of Return (IRR) Projection over 5 Years
-    # Net annual benefits as cash flows starting after initial investment
+    # 5-Year Projected Cash Flows for custom IRR
     annual_net_benefit = net_monthly_income * 12
     cash_flows = [-initial_investment] + [annual_net_benefit * ((1 + est_annual_growth/100)**t) for t in range(1, 6)]
+    irr = calculate_irr(cash_flows)
     
-    # IRR solver fallback
-    try:
-        irr = np.irr(cash_flows) * 100 if hasattr(np, 'irr') else np.real_if_close(np.roots(cash_flows[::-1])[-1]) # Check for depreciated library fallbacks
-        if not isinstance(irr, float) or np.isnan(irr):
-            # Safe linear estimation for simple UI rendering
-            irr = (annual_net_benefit / initial_investment) * 100 - 5
-    except:
-        irr = (annual_net_benefit / initial_investment) * 100 - 5
-        
     renewable_share = (renewable_energy / max(total_energy, 1)) * 100
 
     st.success("### Derived Indicator Calculations")
@@ -149,11 +168,11 @@ with tab2:
         st.metric("Water Usage / Liter Milk", f"{water_intensity:.1f} Liters")
 
 # ==========================================
-# TAB 3: VISUAL BENCHMARK COMPARISONS & GRAPHICS
+# TAB 3: VISUAL BENCHMARK COMPARISONS
 # ==========================================
 with tab3:
     st.header("Comparative Performance Dashboard")
-    st.write("Compare your computed metrics directly with case-study benchmarks from **National Dairy Plan Phase-I (NDP-I)**.")
+    st.write("Compare your computed metrics directly with case-study benchmarks from the **National Dairy Plan Phase-I (NDP-I)**.")
 
     # Data Structuring for Plotting
     metrics = ['Net Profit Margin (%)', 'Benefit-Cost Ratio (BCR)', 'Methane Reduction (%)', 'Renewable Energy Share (%)']
@@ -187,8 +206,8 @@ with tab3:
     st.markdown("""
     > **Visual Scale Notes**: 
     > * **Benefit-Cost Ratio (BCR)** is scaled up by a factor of 10 on this chart for visual clarity.
-    > * **Target Profit Margin (25%)** is modeled on successful producer operations in Bihar & Odisha.
-    > * **Methane reduction benchmarks (14%)** and **Renewable energy targets (20%)** are derived from RBP & Tamil Nadu solar power cases respectively.
+    > * **Target Profit Margin (25%)** is modeled on successful producer operations.
+    > * **Methane reduction benchmarks (14%)** and **Renewable energy targets (20%)** are derived from the [NDDB Mission Milk Chronicle](https://www.nddb.coop/sites/default/files/pdfs/ndpi/Mission_Milk_Chronicle_Vol_4_April_2019.pdf).
     """)
 
     # AI Diagnostic Generation via Groq

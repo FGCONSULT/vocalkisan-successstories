@@ -11,7 +11,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Application Theme / Styling (FIXED: Uses unsafe_allow_html=True)
+# Application Theme / Styling (FIXED: Clean HTML layout)
 st.markdown("""
     <style>
     .main-header { font-size:36px !important; font-weight: bold; color: #1E3A8A; }
@@ -20,7 +20,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="main-header">🐄 Dairy Farm Sustainability & Translation Platform</div>', unsafe_style_html=None or True) # Handled safely inside st.markdown via helper or styling below
+# Corrected Header Markdown Blocks
+st.markdown('<div class="main-header">🐄 Dairy Farm Sustainability & Translation Platform</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">Bilingual Article Translation (via Sarvam AI) & NDP-I Benchmark Analysis</div>', unsafe_allow_html=True)
 st.write("---")
 
@@ -208,7 +209,7 @@ with tab3:
     > * **Benefit-Cost Ratio (BCR)** is scaled up by a factor of 10 on this chart for visual clarity.
     > * **Target Profit Margin (25%)** is modeled on successful producer operations.
     > * **Methane reduction benchmarks (14%)** and **Renewable energy targets (20%)** are derived from the [NDDB Mission Milk Chronicle](https://www.nddb.coop/sites/default/files/pdfs/ndpi/Mission_Milk_Chronicle_Vol_4_April_2019.pdf).
-    """)
+    """, unsafe_allow_html=True)
 
     # AI Diagnostic Generation via Groq
     st.write("---")
